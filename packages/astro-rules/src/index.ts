@@ -8,7 +8,7 @@ const definitions: Record<AspectName, { angle: number; orb: number }> = {
 };
 
 export function findAspect(first: PlanetId, firstLongitude: number, second: PlanetId, secondLongitude: number): Aspect | undefined {
-  const separation = Math.abs(((firstLongitude - secondLongitude + 540) % 360) - 180);
+  const separation = Math.abs((((firstLongitude - secondLongitude + 180) % 360 + 360) % 360) - 180);
   for (const [name, definition] of Object.entries(definitions) as [AspectName, (typeof definitions)[AspectName]][]) {
     const orb = Math.abs(separation - definition.angle);
     if (orb <= definition.orb) return { between: [first, second], name, orb };

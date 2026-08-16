@@ -43,6 +43,8 @@ La API se inicia con `npm --workspace @astralis/api run dev` y expone `POST /v1/
 }
 ```
 
+También expone `GET /v1/locations?query=Madrid`, que busca ciudades y devuelve coordenadas WGS84 y zona horaria IANA. La implementación actual usa la API de geocodificación de Open-Meteo; el proveedor está aislado en `apps/api/src/geocoding.ts` para poder sustituirlo.
+
 ## Siguientes decisiones
 
 `apps/ephemeris-service` incluye `SwissEphemerisProvider`, basado en `@swisseph/node`. Calcula posiciones tropicales geocéntricas con velocidad y las casas disponibles en el dominio. Las efemérides se incluyen con el paquete y se ejecutan únicamente en Node.js; no se importan en la aplicación web.

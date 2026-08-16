@@ -29,3 +29,15 @@ test("rechaza solicitudes sin datos de nacimiento", async (context) => {
   const response = await fetch(`http://127.0.0.1:${address.port}/v1/natal-charts`, { method: "POST", body: "{}" });
   assert.equal(response.status, 400);
 });
+
+test("GET /v1/locations entrega lugares con coordenadas y zona horaria", async (context) => {
+  const server = createApiServer({ geocodingProvider: { search: async () => [{ id: 1, name: "Madrid", label: "Madrid, Comunidad de Madrid, España", latitude: 40.4168, longitude: -3.7038, timeZone: "Europe/Madrid" }] } }).listen(0);
+  await once(server, "listening");
+  context.after(() => server.close());
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No se pudo obtener el puerto de prueba");
+  const response = await fetch(`http://127.0.0.1:${address.port}/v1/locations?query=Madrid`);
+  const body = await response.json() as { results: Array<{ timeZone: string }> };
+  assert.equal(response.status, 200);
+  assert.equal(body.results[0].timeZone, "Europe/Madrid");
+});

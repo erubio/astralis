@@ -7,7 +7,7 @@
   "scripts": {
     "build": "turbo run build",
     "check": "turbo run check",
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev",
     "test": "turbo run test"
   },
   "devDependencies": {

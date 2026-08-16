@@ -2,17 +2,26 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { BirthData, HouseSystem } from "@astralis/astro-domain";
 import { calculateNatalChart } from "@astralis/astro-engine";
 import { SwissEphemerisProvider } from "@astralis/ephemeris-service";
+import { OpenMeteoGeocodingProvider, type GeocodingProvider } from "./geocoding.js";
 
 const provider = new SwissEphemerisProvider();
 const houseSystems = new Set<HouseSystem>(["placidus", "koch", "regiomontanus", "campanus", "equal", "whole-sign", "porphyry", "topocentric"]);
 
 type NatalChartRequest = { birthData: BirthData; houseSystem?: HouseSystem };
+type ApiDependencies = { geocodingProvider?: GeocodingProvider };
 
-export function createApiServer() {
+export function createApiServer({ geocodingProvider = new OpenMeteoGeocodingProvider() }: ApiDependencies = {}) {
   return createServer(async (request, response) => {
     setCorsHeaders(response);
     if (request.method === "OPTIONS") return response.writeHead(204).end();
-    if (request.method !== "POST" || request.url !== "/v1/natal-charts") return sendJson(response, 404, { error: "Ruta no encontrada" });
+    const url = new URL(request.url ?? "/", "http://localhost");
+    if (request.method === "GET" && url.pathname === "/v1/locations") {
+      const query = url.searchParams.get("query")?.trim() ?? "";
+      if (query.length < 2) return sendJson(response, 400, { error: "La búsqueda debe tener al menos dos caracteres" });
+      try { return sendJson(response, 200, { results: await geocodingProvider.search(query) }); }
+      catch { return sendJson(response, 502, { error: "No se pudieron buscar ubicaciones" }); }
+    }
+    if (request.method !== "POST" || url.pathname !== "/v1/natal-charts") return sendJson(response, 404, { error: "Ruta no encontrada" });
 
     try {
       const payload = await readJson(request);
@@ -49,7 +58,7 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 
 function setCorsHeaders(response: ServerResponse): void {
   response.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
