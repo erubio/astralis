@@ -1,7 +1,7 @@
 import type { NatalChart, PlanetId } from "@astralis/astro-domain";
 import { findAspect } from "@astralis/astro-rules";
 
-const planetSymbols: Record<PlanetId, string> = { sun: "☉", moon: "☽", mercury: "☿", venus: "♀", mars: "♂", jupiter: "♃", saturn: "♄", uranus: "♅", neptune: "♆", pluto: "♇" };
+const planetSymbols: Record<PlanetId, string> = { sun: "☉", moon: "☽", mercury: "☿", venus: "♀", mars: "♂", jupiter: "♃", saturn: "♄", uranus: "♅", neptune: "♆", pluto: "♇", "north-node": "☊", chiron: "⚷", "part-of-fortune": "⊗" };
 const zodiacSymbols = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 const aspectColors = { conjunction: "#9078b5", sextile: "#5da8aa", square: "#d46d75", trine: "#65a877", opposition: "#d46d75" } as const;
 
@@ -30,7 +30,7 @@ export function renderNatalChartSvg(chart: NatalChart, size = 620): string {
     const span = (next - cusp + 360) % 360;
     return text(point(cusp + span / 2, (aspectRing + houseRing) / 2), String(index + 1), "house", `Casa ${index + 1}`);
   }).join("");
-  const placements = distributePlanets(chart.planets, zodiacRing, point);
+  const placements = distributePlanets([...chart.planets, ...chart.points], zodiacRing, point);
   const aspects = placements.flatMap((first, index) => placements.slice(index + 1).flatMap((second) => {
     const aspect = findAspect(first.planet, first.longitude, second.planet, second.longitude);
     const from = point(first.longitude, aspectRing);

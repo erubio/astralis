@@ -2,6 +2,7 @@ import type { BirthData, HouseSystem, HousesResult, NatalChart, NormalizedTime, 
 
 const signs: ZodiacSign[] = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];
 const planets: PlanetId[] = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"];
+const calculatedPoints: PlanetId[] = ["north-node", "chiron"];
 
 export interface EphemerisProvider {
   calculatePlanet(planet: PlanetId, julianDayUT: number): RawPlanetPosition;
@@ -34,17 +35,23 @@ export function toZodiacPosition(position: RawPlanetPosition): ZodiacPosition {
 
 export function calculateNatalChart(birthData: BirthData, provider: EphemerisProvider, system: HouseSystem = "placidus"): NatalChart {
   const time = normalizeBirthTime(birthData);
+  const houses = provider.calculateHouses(time.julianDayUT, birthData.latitude, birthData.longitude, system);
+  const calculatedPlanets = planets.map((planet) => toZodiacPosition(provider.calculatePlanet(planet, time.julianDayUT)));
+  const sun = calculatedPlanets.find(({ planet }) => planet === "sun")!;
+  const moon = calculatedPlanets.find(({ planet }) => planet === "moon")!;
+  const fortuneLongitude = (houses.ascendant + moon.longitude - sun.longitude + 360) % 360;
   return {
     birthData,
     time,
-    planets: planets.map((planet) => toZodiacPosition(provider.calculatePlanet(planet, time.julianDayUT))),
-    houses: provider.calculateHouses(time.julianDayUT, birthData.latitude, birthData.longitude, system)
+    planets: calculatedPlanets,
+    points: [...calculatedPoints.map((point) => toZodiacPosition(provider.calculatePlanet(point, time.julianDayUT))), toZodiacPosition({ planet: "part-of-fortune", longitude: fortuneLongitude, latitude: 0, distance: 0, speedLongitude: 0, retrograde: false })],
+    houses
   };
 }
 
 export class DemoEphemerisProvider implements EphemerisProvider {
   calculatePlanet(planet: PlanetId, julianDayUT: number): RawPlanetPosition {
-    const seed = planets.indexOf(planet) * 31.7 + julianDayUT * (planet === "moon" ? 13.2 : 0.8);
+    const seed = (planets.indexOf(planet) + calculatedPoints.indexOf(planet) + 1) * 31.7 + julianDayUT * (planet === "moon" ? 13.2 : 0.8);
     return { planet, longitude: seed % 360, latitude: 0, distance: 1, speedLongitude: 1, retrograde: false };
   }
   calculateHouses(_julianDayUT: number, _latitude: number, longitude: number, _system: HouseSystem): HousesResult {

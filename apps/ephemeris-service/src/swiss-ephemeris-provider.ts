@@ -1,10 +1,11 @@
 import type { HouseSystem as AstralisHouseSystem, HousesResult, PlanetId, RawPlanetPosition } from "@astralis/astro-domain";
 import type { EphemerisProvider } from "@astralis/astro-engine";
-import { CalculationFlag, calculateHouses, calculatePosition, HouseSystem, Planet } from "@swisseph/node";
+import { Asteroid, CalculationFlag, calculateHouses, calculatePosition, HouseSystem, LunarPoint, Planet } from "@swisseph/node";
 
-const planets: Record<PlanetId, Planet> = {
+const planets: Record<Exclude<PlanetId, "part-of-fortune">, Planet | LunarPoint | Asteroid> = {
   sun: Planet.Sun, moon: Planet.Moon, mercury: Planet.Mercury, venus: Planet.Venus, mars: Planet.Mars,
-  jupiter: Planet.Jupiter, saturn: Planet.Saturn, uranus: Planet.Uranus, neptune: Planet.Neptune, pluto: Planet.Pluto
+  jupiter: Planet.Jupiter, saturn: Planet.Saturn, uranus: Planet.Uranus, neptune: Planet.Neptune, pluto: Planet.Pluto,
+  "north-node": LunarPoint.TrueNode, chiron: Asteroid.Chiron
 };
 
 const houseSystems: Record<AstralisHouseSystem, HouseSystem> = {
@@ -19,6 +20,7 @@ const flags = CalculationFlag.SwissEphemeris | CalculationFlag.Speed;
 export class SwissEphemerisProvider implements EphemerisProvider {
   calculatePlanet(planet: PlanetId, julianDayUT: number): RawPlanetPosition {
     assertJulianDay(julianDayUT);
+    if (planet === "part-of-fortune") throw new Error("La Parte de la Fortuna se deriva de la carta natal");
     const result = calculatePosition(julianDayUT, planets[planet], flags);
     return { planet, longitude: normalizeDegrees(result.longitude), latitude: result.latitude, distance: result.distance, speedLongitude: result.longitudeSpeed, retrograde: result.longitudeSpeed < 0 };
   }
