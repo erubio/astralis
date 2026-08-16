@@ -16,6 +16,10 @@ test("ancla la carta al Ascendente e incluye ángulos y casas", () => {
   assert.match(svg, />□<\/text>/);
   assert.match(svg, /Casa 12/);
   assert.equal((svg.match(/<circle class="ring"/g) ?? []).length, 4);
+  assert.equal((svg.match(/class="zodiac-sector/g) ?? []).length, 12);
+  assert.match(svg, /class="zodiac-sector zodiac-fuego" fill="#6e3443"/);
+  assert.match(svg, /class="zodiac-sector zodiac-agua" fill="#314f68"/);
+  assert.match(svg, /class="zodiac" fill="#e37b73"/);
   assert.doesNotMatch(svg, /position-track/);
 });
 
