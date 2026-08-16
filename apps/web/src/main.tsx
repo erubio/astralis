@@ -15,6 +15,12 @@ function calculationKey(birthData: BirthData, houseSystem: HouseSystem): string 
   return JSON.stringify({ ...birthData, houseSystem });
 }
 
+function formatBirthDate(date: string): string {
+  const parsedDate = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) return date || "Sin especificar";
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(parsedDate);
+}
+
 function App() {
   const [birthData, setBirthData] = useState(initial);
   const [locationQuery, setLocationQuery] = useState(initial.locationName ?? "");
@@ -29,9 +35,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [printName, setPrintName] = useState("");
+  const [reportName, setReportName] = useState("Carta natal");
   const currentCalculationKey = calculationKey(birthData, houseSystem);
   const isCurrentChart = Boolean(chart && calculatedKey === currentCalculationKey);
   const wheel = useMemo(() => chart ? renderNatalChartSvg(chart, 620, { minorAspects: [...minorAspects] }) : undefined, [chart, minorAspects]);
+  const houseSystemLabel = houseSystems.find((system) => system.value === houseSystem)?.label ?? houseSystem;
 
   async function calculate(data: BirthData = birthData): Promise<void> {
     const requestKey = calculationKey(data, houseSystem);
@@ -58,6 +68,18 @@ function App() {
       const next = new Set(current);
       if (next.has(aspect)) next.delete(aspect); else next.add(aspect);
       return next;
+    });
+  }
+
+  function printChart(): void {
+    const nextReportName = printName.trim() || "Carta natal";
+    const previousTitle = document.title;
+    setReportName(nextReportName);
+    setIsPrintDialogOpen(false);
+    window.requestAnimationFrame(() => {
+      document.title = `Carta natal · ${nextReportName}`;
+      window.print();
+      window.setTimeout(() => { document.title = previousTitle; }, 1000);
     });
   }
 
@@ -97,10 +119,12 @@ function App() {
         <fieldset className="aspect-options"><legend>Aspectos menores</legend>{minorAspectNames.map((aspect) => <label className="aspect-option" key={aspect}><input type="checkbox" checked={minorAspects.has(aspect)} onChange={() => toggleMinorAspect(aspect)}/>{minorAspectLabels[aspect]}</label>)}</fieldset>
         <button disabled={isLoading || isCurrentChart}>{isLoading ? "Calculando…" : isCurrentChart ? "Carta actualizada" : "Calcular carta"}</button>
       </form></aside>
-      <section className="chart">{wheel ? <><div dangerouslySetInnerHTML={{ __html: wheel }}/><button className="zoom-button" type="button" onClick={() => setIsZoomed(true)}>Ampliar carta</button></> : <p className="chart-status">{error ?? "Calculando carta…"}</p>}{error && chart && <p className="error">{error}</p>}</section>
+      <section className="chart">{wheel ? <><div dangerouslySetInnerHTML={{ __html: wheel }}/><div className="chart-actions"><button className="zoom-button" type="button" onClick={() => setIsZoomed(true)}>Ampliar carta</button><button className="print-button" type="button" onClick={() => setIsPrintDialogOpen(true)}>Exportar como PDF</button></div></> : <p className="chart-status">{error ?? "Calculando carta…"}</p>}{error && chart && <p className="error">{error}</p>}</section>
       <aside><h2>Posiciones</h2>{chart ? [...chart.planets, ...chart.points].map((planet) => <p key={planet.planet}><span>{planetLabels[planet.planet]}</span> {planet.degree}° {String(planet.minute).padStart(2, "0")}′ {signLabels[planet.sign]}{planet.retrograde ? " ℞" : ""}</p>) : <p>Esperando cálculo.</p>}</aside>
     </section>
     {isZoomed && wheel && <div className="chart-zoom" role="dialog" aria-modal="true" aria-label="Carta ampliada"><button className="zoom-close" type="button" onClick={() => setIsZoomed(false)}>Cerrar</button><div className="chart-zoom-canvas" dangerouslySetInnerHTML={{ __html: wheel }}/></div>}
+    {isPrintDialogOpen && <div className="print-dialog-backdrop" role="presentation"><form className="print-dialog" onSubmit={(event) => { event.preventDefault(); printChart(); }}><h2>Exportar carta</h2><p>Escribe el nombre que aparecerá en el informe.</p><label>Nombre<input autoFocus value={printName} onChange={(event) => setPrintName(event.target.value)} placeholder="Nombre"/></label><div className="print-dialog-actions"><button className="secondary-button" type="button" onClick={() => setIsPrintDialogOpen(false)}>Cancelar</button><button type="submit">Abrir impresión</button></div></form></div>}
+    {chart && wheel && <section className="print-report" aria-hidden="true"><header><p className="print-brand">ASTRALIS · CARTA NATAL</p><h1>{reportName}</h1></header><aside><h2>Datos de nacimiento</h2><dl><div><dt>Fecha</dt><dd>{formatBirthDate(birthData.date)}</dd></div><div><dt>Hora local</dt><dd>{birthData.time}</dd></div><div><dt>Lugar</dt><dd>{birthData.locationName}</dd></div><div><dt>Coordenadas</dt><dd>{birthData.latitude.toFixed(4)}, {birthData.longitude.toFixed(4)}</dd></div><div><dt>Zona horaria</dt><dd>{birthData.timeZone}</dd></div><div><dt>Casas</dt><dd>{houseSystemLabel}</dd></div></dl></aside><div className="print-wheel" dangerouslySetInnerHTML={{ __html: wheel }}/><footer>Generado con Astralis</footer></section>}
   </main>;
 }
 
