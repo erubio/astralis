@@ -13,6 +13,7 @@
   "dependencies": {
     "@astralis/astro-domain": "*",
     "@astralis/astro-engine": "*",
+    "@astralis/astro-rules": "*",
     "@astralis/ephemeris-service": "*"
   },
   "devDependencies": {

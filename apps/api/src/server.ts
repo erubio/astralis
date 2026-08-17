@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { BirthData, HouseSystem } from "@astralis/astro-domain";
 import { calculateNatalChart } from "@astralis/astro-engine";
 import { SwissEphemerisProvider } from "@astralis/ephemeris-service";
+import { composeCoreInterpretation } from "@astralis/astro-rules";
 import { OpenMeteoGeocodingProvider, type GeocodingProvider } from "./geocoding.js";
 
 const provider = new SwissEphemerisProvider();
@@ -21,12 +22,13 @@ export function createApiServer({ geocodingProvider = new OpenMeteoGeocodingProv
       try { return sendJson(response, 200, { results: await geocodingProvider.search(query) }); }
       catch { return sendJson(response, 502, { error: "No se pudieron buscar ubicaciones" }); }
     }
-    if (request.method !== "POST" || url.pathname !== "/v1/natal-charts") return sendJson(response, 404, { error: "Ruta no encontrada" });
+    if (request.method !== "POST" || !["/v1/natal-charts", "/v1/natal-interpretations"].includes(url.pathname)) return sendJson(response, 404, { error: "Ruta no encontrada" });
 
     try {
       const payload = await readJson(request);
       const { birthData, houseSystem = "placidus" } = parseNatalChartRequest(payload);
-      return sendJson(response, 200, calculateNatalChart(birthData, provider, houseSystem));
+      const chart = calculateNatalChart(birthData, provider, houseSystem);
+      return sendJson(response, 200, url.pathname === "/v1/natal-interpretations" ? composeCoreInterpretation(chart) : chart);
     } catch (error) {
       return sendJson(response, 400, { error: error instanceof Error ? error.message : "Solicitud no válida" });
     }

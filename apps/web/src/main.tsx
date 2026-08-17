@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { BirthData, HouseSystem, NatalChart, PlanetId, ZodiacSign } from "@astralis/astro-domain";
 import { minorAspectNames, renderNatalChartSvg, type MinorAspectName } from "@astralis/astro-renderer";
+import type { InterpretationReport } from "@astralis/astro-rules";
 import "./styles.css";
 
 type LocationMatch = { id: number; name: string; label: string; latitude: number; longitude: number; timeZone: string };
@@ -28,11 +29,14 @@ function App() {
   const [houseSystem, setHouseSystem] = useState<HouseSystem>("placidus");
   const [minorAspects, setMinorAspects] = useState<Set<MinorAspectName>>(() => new Set(minorAspectNames));
   const [chart, setChart] = useState<NatalChart>();
+  const [interpretation, setInterpretation] = useState<InterpretationReport>();
   const [calculatedKey, setCalculatedKey] = useState<string>();
   const [error, setError] = useState<string>();
+  const [interpretationError, setInterpretationError] = useState<string>();
   const [locationError, setLocationError] = useState<string>();
   const [matches, setMatches] = useState<LocationMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInterpreting, setIsInterpreting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
@@ -46,15 +50,27 @@ function App() {
   async function calculate(data: BirthData = birthData): Promise<void> {
     const requestKey = calculationKey(data, houseSystem);
     if (requestKey === calculatedKey) return;
-    setIsLoading(true); setError(undefined);
+    setIsLoading(true); setError(undefined); setInterpretation(undefined); setInterpretationError(undefined);
     try {
       const response = await fetch("/v1/natal-charts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ birthData: data, houseSystem }) });
       const result = await response.json() as NatalChart | { error: string };
       if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : "No se pudo calcular la carta");
       setChart(result);
       setCalculatedKey(requestKey);
+      void loadInterpretation(data);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo conectar con la API"); }
     finally { setIsLoading(false); }
+  }
+
+  async function loadInterpretation(data: BirthData): Promise<void> {
+    setIsInterpreting(true); setInterpretationError(undefined);
+    try {
+      const response = await fetch("/v1/natal-interpretations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ birthData: data, houseSystem }) });
+      const result = await response.json() as InterpretationReport | { error: string };
+      if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : "No se pudo preparar la interpretación");
+      setInterpretation(result);
+    } catch (reason) { setInterpretationError(reason instanceof Error ? reason.message : "No se pudo cargar la interpretación"); }
+    finally { setIsInterpreting(false); }
   }
 
   function selectLocation(location: LocationMatch): void {
@@ -122,6 +138,7 @@ function App() {
       <section className="chart">{wheel ? <><div dangerouslySetInnerHTML={{ __html: wheel }}/><div className="chart-actions"><button className="zoom-button" type="button" onClick={() => setIsZoomed(true)}>Ampliar carta</button><button className="print-button" type="button" onClick={() => setIsPrintDialogOpen(true)}>Exportar como PDF</button></div></> : <p className="chart-status">{error ?? "Calculando carta…"}</p>}{error && chart && <p className="error">{error}</p>}</section>
       <aside><h2>Posiciones</h2>{chart ? [...chart.planets, ...chart.points].map((planet) => <p key={planet.planet}><span>{planetLabels[planet.planet]}</span> {planet.degree}° {String(planet.minute).padStart(2, "0")}′ {signLabels[planet.sign]}{planet.retrograde ? " ℞" : ""}</p>) : <p>Esperando cálculo.</p>}</aside>
     </section>
+    {(isInterpreting || interpretation || interpretationError) && <section className="interpretation" aria-live="polite"><p className="eyebrow">LECTURA SIMBÓLICA</p><h2>Interpretación de tu carta</h2>{isInterpreting && <p className="interpretation-status">Preparando interpretación…</p>}{interpretationError && <p className="error">{interpretationError}</p>}{interpretation && <div className="interpretation-grid">{interpretation.sections.map((section) => <article className="interpretation-card" key={section.id}><h3>{section.title}</h3><p>{section.text}</p></article>)}</div>}</section>}
     <footer className="site-footer">Astralis se distribuye bajo <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPL-3.0-or-later</a> · <a href="https://github.com/erubio/astralis" target="_blank" rel="noreferrer">Ver código fuente</a></footer>
     {isZoomed && wheel && <div className="chart-zoom" role="dialog" aria-modal="true" aria-label="Carta ampliada"><button className="zoom-close" type="button" onClick={() => setIsZoomed(false)}>Cerrar</button><div className="chart-zoom-canvas" dangerouslySetInnerHTML={{ __html: wheel }}/></div>}
     {isPrintDialogOpen && <div className="print-dialog-backdrop" role="presentation"><form className="print-dialog" onSubmit={(event) => { event.preventDefault(); printChart(); }}><h2>Exportar carta</h2><p>Escribe el nombre que aparecerá en el informe.</p><label>Nombre<input autoFocus value={printName} onChange={(event) => setPrintName(event.target.value)} placeholder="Nombre"/></label><div className="print-dialog-actions"><button className="secondary-button" type="button" onClick={() => setIsPrintDialogOpen(false)}>Cancelar</button><button type="submit">Abrir impresión</button></div></form></div>}
