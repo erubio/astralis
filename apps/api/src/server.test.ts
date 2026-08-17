@@ -30,7 +30,7 @@ test("rechaza solicitudes sin datos de nacimiento", async (context) => {
   assert.equal(response.status, 400);
 });
 
-test("POST /v1/natal-interpretations devuelve secciones trazables de Sol, Luna y Ascendente", async (context) => {
+test("POST /v1/natal-interpretations devuelve secciones trazables de planetas personales y Ascendente", async (context) => {
   const server = createApiServer().listen(0);
   await once(server, "listening");
   context.after(() => server.close());
@@ -42,7 +42,7 @@ test("POST /v1/natal-interpretations devuelve secciones trazables de Sol, Luna y
   });
   const report = await response.json() as { factors: Array<{ id: string }>; sections: Array<{ id: string; factorIds: string[] }> };
   assert.equal(response.status, 200);
-  assert.deepEqual(report.sections.map((section) => section.id), ["sun", "moon", "ascendant"]);
+  assert.deepEqual(report.sections.map((section) => section.id), ["sun", "moon", "mercury", "venus", "mars", "ascendant", "aspects"]);
   assert.equal(report.sections[0].factorIds[0], report.factors[0].id);
 });
 
